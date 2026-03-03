@@ -1,27 +1,24 @@
 # Project Structure Guide
 
-This repository is organized by **framework capability**, not by one-off scripts.
+OpenPipe is organized around a framework runtime plus reusable pipes.
 
 ## Top-level
 
-- `engine/` — framework runtime and invocation surfaces
-- `packs/` — reusable workflow packs (including Meta pack)
-- `pipes/` — concrete business pipes built on MetaPipe
-- `docs/` — architecture, structure, design docs
+- `engine/` — runtime and invocation surfaces
+- `pipes/` — pipe implementations (meta + business)
+- `packs/` — legacy/compatibility layer
+- `docs/` — architecture and standards
 
 ## Naming Rules
 
-- Pack IDs: kebab-case (`workflow-pack-generator`)
-- Pipe IDs: kebab-case (`scholar-radar`)
+- Pipe IDs: kebab-case (`metapipe`, `scholar-radar`)
 - Role names: kebab-case (`requirements-analyst`)
-- Artifact names: snake_case or fixed pack names
+- Artifact names: snake_case or fixed names from contracts
 
-## Pack Folder Contract
-
-Each pack should contain:
+## Pipe Folder Contract
 
 ```text
-packs/<pack-id>/
+pipes/<pipe-id>/
 ├─ workflow.yaml
 ├─ roles.yaml
 ├─ tasks.yaml
@@ -32,25 +29,25 @@ packs/<pack-id>/
 └─ README.md
 ```
 
-## Pipe Folder Contract
+## Business Pipe Contract (domain-heavy)
 
 ```text
 pipes/<pipe-id>/
 ├─ config/
 ├─ scripts/
 ├─ output/
-├─ papers/         # optional, domain artifacts
+├─ papers/         # optional domain artifacts
 └─ README.md
 ```
 
 ## Backward Compatibility
 
-Legacy paths should be preserved with symlinks during migration windows.
-For now:
+Legacy paths can be preserved with symlinks during migration windows.
+Current compatibility links:
 - `radar/ -> pipes/scholar-radar`
 
 ## What NOT to commit
 
 - Runtime `.runs/`
 - local secrets or local-only configs
-- user workspace persona files (AGENTS/SOUL/USER/etc)
+- user workspace persona/runtime files (AGENTS/SOUL/USER/etc)

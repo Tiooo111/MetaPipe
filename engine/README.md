@@ -1,6 +1,6 @@
 # Workflow Engine (v0.2)
 
-This folder contains the execution layer for workflow packs.
+This folder contains the execution layer for OpenPipe pipes/workflows.
 
 New in v0.4:
 - Contract validation from `contracts/contract-rules.yaml`
@@ -12,18 +12,18 @@ New in v0.4:
 
 ## 1) CLI
 
-List packs:
+List pipes/workflows:
 
 ```bash
 npm run wf:list
 ```
 
-Run a pack:
+Run a pipe:
 
 ```bash
-node engine/wf-cli.js run workflow-pack-generator
+node engine/wf-cli.js run metapipe
 # or
-npm run wf:run -- workflow-pack-generator
+npm run wf:run -- metapipe
 ```
 
 Optional global command (from repo root, if your environment allows `npm link`):
@@ -31,7 +31,7 @@ Optional global command (from repo root, if your environment allows `npm link`):
 ```bash
 npm link
 wf list
-wf run workflow-pack-generator --dry-run
+wf run metapipe --dry-run
 ```
 
 If `npm link` is restricted, keep using:
@@ -144,10 +144,10 @@ OpenAPI spec:
 curl http://127.0.0.1:8787/openapi.yaml
 ```
 
-Run workflow pack:
+Run pipe:
 
 ```bash
-curl -X POST http://127.0.0.1:8787/workflows/workflow-pack-generator/run \
+curl -X POST http://127.0.0.1:8787/workflows/metapipe/run \
   -H 'content-type: application/json' \
   -d '{"dryRun": true}'
 ```
@@ -168,7 +168,7 @@ Methods (JSON line protocol):
 Example request line:
 
 ```json
-{"id":1,"method":"run_workflow","params":{"packId":"workflow-pack-generator","dryRun":true}}
+{"id":1,"method":"run_workflow","params":{"packId":"metapipe","dryRun":true}}
 ```
 
 ## 4) MCP Server (tool integration)
@@ -184,4 +184,4 @@ Exposed MCP tools:
 - `list_workflows`
 - `run_workflow`
 
-This lets external MCP clients call workflow packs directly without going through REST.
+This lets external MCP clients call OpenPipe pipes directly without going through REST.

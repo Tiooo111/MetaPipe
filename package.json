@@ -1,5 +1,5 @@
 {
-  "name": "metapipe",
+  "name": "openpipe",
   "private": true,
   "type": "module",
   "bin": {

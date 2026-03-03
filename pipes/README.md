@@ -1,9 +1,10 @@
 # Pipes
 
-Pipes are concrete business workflows built on MetaPipe runtime + pack conventions.
+Pipes are runnable workflow units built on OpenPipe runtime.
 
-Current pipe examples:
+Current pipes:
 
-- `scholar-radar` — paper discovery, ranking, summary generation, poster/report output, and delivery integration.
+- `metapipe` — meta generator pipe that produces new pipes from user tasks.
+- `scholar-radar` — domain pipe for paper discovery, ranking, summary/poster/report delivery.
 
-Use packs to generate new pipes, then keep each pipe isolated under `pipes/<pipe-id>/`.
+Use `wf run <pipe-id>` to execute any pipe that contains `workflow.yaml`.

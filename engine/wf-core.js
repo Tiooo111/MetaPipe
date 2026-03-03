@@ -4,19 +4,51 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileP = promisify(execFile);
+const WORKFLOW_DIRS = ['pipes', 'packs'];
 
 export function isSafePackId(packId) {
   return /^[a-zA-Z0-9._-]+$/.test(packId || '');
 }
 
-export async function listPacks(baseDir = 'packs') {
-  const base = path.resolve(baseDir);
+async function fileExists(file) {
   try {
-    const dirs = await fs.readdir(base, { withFileTypes: true });
-    return dirs.filter((d) => d.isDirectory()).map((d) => d.name).sort();
+    await fs.access(file);
+    return true;
   } catch {
-    return [];
+    return false;
   }
+}
+
+export async function resolveWorkflowPath(packId) {
+  if (!isSafePackId(packId)) return null;
+
+  for (const baseDir of WORKFLOW_DIRS) {
+    const p = path.resolve(baseDir, packId, 'workflow.yaml');
+    if (await fileExists(p)) return p;
+  }
+  return null;
+}
+
+export async function listPacks() {
+  const names = new Set();
+
+  for (const baseDir of WORKFLOW_DIRS) {
+    const base = path.resolve(baseDir);
+    let dirs = [];
+    try {
+      dirs = await fs.readdir(base, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const d of dirs) {
+      if (!d.isDirectory()) continue;
+      const wf = path.join(base, d.name, 'workflow.yaml');
+      if (await fileExists(wf)) names.add(d.name);
+    }
+  }
+
+  return [...names].sort();
 }
 
 function parseRunnerOutput(stdout) {
@@ -36,7 +68,11 @@ export async function runPack(packId, opts = {}) {
     throw new Error(`invalid_pack_id:${packId}`);
   }
 
-  const workflow = path.resolve('packs', packId, 'workflow.yaml');
+  const workflow = await resolveWorkflowPath(packId);
+  if (!workflow) {
+    throw new Error(`workflow_not_found:${packId}`);
+  }
+
   const args = ['engine/wf-runner.js', '--workflow', workflow];
 
   if (opts.runDir) args.push('--run-dir', String(opts.runDir));

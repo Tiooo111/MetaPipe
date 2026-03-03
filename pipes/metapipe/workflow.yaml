@@ -1,6 +1,6 @@
 version: "0.1"
-id: workflow-pack-generator
-name: Workflow Pack Generator
+id: metapipe
+name: MetaPipe
 mode: state-machine
 entryNode: align_requirements
 
@@ -28,7 +28,7 @@ inputs:
     required: false
 
 artifacts:
-  root: ./artifacts/workflow-pack-generator
+  root: ./artifacts/metapipe
   required:
     - requirements.md
     - acceptance_criteria.md

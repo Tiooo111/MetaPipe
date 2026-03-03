@@ -1,13 +1,10 @@
-# Workflow Packs
+# Packs (Compatibility Layer)
 
-Workflow Packs define reusable orchestration logic.
+This directory is kept for legacy compatibility.
 
-A pack should include:
-- workflow graph (`workflow.yaml`)
-- role definitions (`roles.yaml`)
-- task decomposition (`tasks.yaml`)
-- contracts/schemas (`contracts/`)
-- templates and optional scripts (`templates/`, `scripts/`)
+OpenPipe now treats runnable units as **pipes** under `pipes/`.
+Primary meta workflow lives at:
 
-Current pack:
-- `workflow-pack-generator` (MetaPipe's meta-pack)
+- `pipes/metapipe`
+
+Engine discovery checks both `pipes/` and `packs/` to support smooth migration.

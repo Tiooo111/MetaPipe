@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: Scholar Workflow Engine API
-  version: 0.1.0
-  description: Minimal API for running workflow packs.
+  title: OpenPipe Workflow API
+  version: 0.2.0
+  description: Minimal API for running OpenPipe pipes/workflows.
 servers:
   - url: http://127.0.0.1:8787
 paths:
@@ -14,10 +14,39 @@ paths:
           description: OK
   /workflows/{packId}/run:
     post:
-      summary: Run a workflow pack
+      summary: Run a pipe/workflow (compat route)
       parameters:
         - in: path
           name: packId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                runDir:
+                  type: string
+                maxSteps:
+                  type: integer
+                dryRun:
+                  type: boolean
+                resumeRunDir:
+                  type: string
+                injectDeviation:
+                  type: string
+      responses:
+        '200':
+          description: Run accepted and completed
+  /pipes/{pipeId}/run:
+    post:
+      summary: Run a pipe
+      parameters:
+        - in: path
+          name: pipeId
           required: true
           schema:
             type: string

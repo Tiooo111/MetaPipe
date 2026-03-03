@@ -1,5 +1,5 @@
 {
-  "packId": "workflow-pack-generator",
+  "packId": "metapipe",
   "version": "0.1",
   "artifacts": [
     "requirements.md",

@@ -28,7 +28,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.cmd === 'help' || args.cmd === '--help' || args.cmd === '-h') {
-    console.log(`Usage:\n  wf list\n  wf run <packId> [--dry-run] [--run-dir <dir>] [--resume-run-dir <dir>] [--max-steps <n>] [--inject-deviation <type>]`);
+    console.log(`Usage:\n  wf list\n  wf run <pipeId> [--dry-run] [--run-dir <dir>] [--resume-run-dir <dir>] [--max-steps <n>] [--inject-deviation <type>]`);
     return;
   }
 
@@ -39,7 +39,7 @@ async function main() {
   }
 
   if (args.cmd === 'run') {
-    if (!args.packId) throw new Error('Missing packId. Usage: run <packId>');
+    if (!args.packId) throw new Error('Missing pipeId. Usage: run <pipeId>');
     const res = await runPack(args.packId, args);
     console.log(JSON.stringify(res, null, 2));
     return;

@@ -36,14 +36,14 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'POST' && u.pathname.startsWith('/workflows/')) {
-      const m = u.pathname.match(/^\/workflows\/([^/]+)\/run$/);
+    if (req.method === 'POST' && (u.pathname.startsWith('/workflows/') || u.pathname.startsWith('/pipes/'))) {
+      const m = u.pathname.match(/^\/(?:workflows|pipes)\/([^/]+)\/run$/);
       if (!m) return json(res, 404, { ok: false, error: 'not_found' });
 
-      const packId = m[1];
+      const pipeId = m[1];
       const body = await readJsonBody(req);
-      const out = await runPack(packId, body);
-      return json(res, 200, { ok: true, packId, result: out });
+      const out = await runPack(pipeId, body);
+      return json(res, 200, { ok: true, pipeId, result: out });
     }
 
     return json(res, 404, { ok: false, error: 'not_found' });

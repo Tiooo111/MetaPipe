@@ -1,14 +1,14 @@
-# workflow-pack-generator (Meta Workflow Pack)
+# MetaPipe (Meta Generator Pipe)
 
-Generate a runnable Workflow Pack from a user task.
+MetaPipe generates a runnable pipe from a user task.
 
 ## Purpose
-Given a task description, this pack produces:
+Given a task description, MetaPipe produces:
 - aligned requirements (`requirements.md` as SSOT)
 - architecture and role design
 - executable task plan
 - verification + deviation routing
-- final reusable workflow pack assets
+- final reusable pipe assets
 
 ## Stages
 1. Alignment
@@ -19,21 +19,17 @@ Given a task description, this pack produces:
 ## Core Principle
 `requirements.md` is the single source of truth for all downstream roles.
 
-## Minimal Executor (v0)
-Run the pack with the generic runner:
+## Run
 
 ```bash
 cd /home/node/.openclaw/workspace-scholar
-node engine/wf-runner.js \
-  --workflow packs/workflow-pack-generator/workflow.yaml
+npm run wf:run -- metapipe --dry-run
 ```
 
-Optional deviation injection test:
+Optional deviation injection:
 
 ```bash
-node engine/wf-runner.js \
-  --workflow packs/workflow-pack-generator/workflow.yaml \
-  --inject-deviation implementation_bug
+npm run wf:run -- metapipe --inject-deviation implementation_bug
 ```
 
 Outputs are written under `.runs/<run-id>/` with:
@@ -41,12 +37,12 @@ Outputs are written under `.runs/<run-id>/` with:
 - `execution_state.json` (resume checkpoint)
 - `execution_events.jsonl` (event timeline)
 
-This pack also includes machine-checkable output contracts in:
+This pipe includes machine-checkable output contracts in:
 - `contracts/contract-rules.yaml`
 - `contracts/*.schema.json`
 
 Role-level executor defaults are declared in `roles.yaml` (currently `template`, with optional `script` examples).
 
-Script executor examples are provided in:
+Script executor examples:
 - `scripts/build_pack.js`
 - `scripts/verify_pack.js`

@@ -9,7 +9,7 @@ const execFileP = promisify(execFile);
 
 function parseArgs(argv) {
   const args = {
-    workflow: 'packs/workflow-pack-generator/workflow.yaml',
+    workflow: 'pipes/metapipe/workflow.yaml',
     runDir: null,
     resumeRunDir: null,
     maxSteps: 40,
@@ -58,14 +58,25 @@ async function appendJsonl(file, obj) {
 
 function nowTag() {
   const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}-${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+  const p2 = (n) => String(n).padStart(2, '0');
+  const p3 = (n) => String(n).padStart(3, '0');
+  const rand = Math.random().toString(36).slice(2, 6);
+  return `${d.getUTCFullYear()}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}-${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}${p2(d.getUTCSeconds())}${p3(d.getUTCMilliseconds())}-${process.pid}-${rand}`;
 }
 
-function resolveRunDir(args) {
+async function resolveRunDir(args, workflowId = 'workflow') {
   if (args.resumeRunDir) return path.resolve(args.resumeRunDir);
   if (args.runDir) return path.resolve(args.runDir);
-  return path.resolve('.runs', `workflow-pack-generator-${nowTag()}`);
+
+  const base = path.resolve('.runs', `${workflowId}-${nowTag()}`);
+  if (!(await exists(base))) return base;
+
+  for (let i = 1; i <= 999; i++) {
+    const candidate = `${base}-${i}`;
+    if (!(await exists(candidate))) return candidate;
+  }
+
+  return `${base}-${Date.now()}`;
 }
 
 async function loadWorkflow(workflowPath) {
@@ -643,7 +654,7 @@ async function run() {
   const workflowPath = path.resolve(args.workflow);
   const wf = await loadWorkflow(workflowPath);
   const nodeMap = buildNodeMap(wf);
-  const runDir = resolveRunDir(args);
+  const runDir = await resolveRunDir(args, wf.id || 'workflow');
   const packRoot = path.dirname(workflowPath);
   const rolesDoc = await loadRolesDoc(packRoot);
 

@@ -1,9 +1,9 @@
 # Runbook
 
 ## Invocation
-- CLI: `wf run workflow-pack-generator --input task_prompt="..."`
-- API: `POST /workflows/workflow-pack-generator/run`
-- MCP: `run_workflow(name="workflow-pack-generator", params={...})`
+- CLI: `wf run metapipe --dry-run`
+- API: `POST /workflows/metapipe/run` (JSON body: `{ "dryRun": true }`)
+- StdIO RPC / MCP: `run_workflow` with params like `{ "packId": "metapipe", "dryRun": true }`
 
 ## Stage Gates
 1. Alignment gate must pass before Design.

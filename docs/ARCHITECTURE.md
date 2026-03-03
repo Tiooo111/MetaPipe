@@ -1,4 +1,4 @@
-# MetaPipe Architecture
+# OpenPipe Architecture
 
 ## Layers
 
@@ -16,8 +16,9 @@ Responsibilities:
 - Contract validation (rules + schema)
 - Checkpoint/resume
 - Event/audit output
+- Executor plugin routing (`template`, `shell`, `script`, `llm`)
 
-### 2) Workflow Pack (`packs/<pack-id>/`)
+### 2) Pipes (`pipes/<pipe-id>/`)
 - `workflow.yaml`: orchestration graph + policy
 - `roles.yaml`: role definition + executor defaults
 - `tasks.yaml`: task breakdown
@@ -25,20 +26,24 @@ Responsibilities:
 - `templates/`: deterministic content templates
 - `scripts/`: optional script executors
 
-### 3) Business Pipe (`pipes/<pipe-id>/`)
-- Domain-specific implementations built using MetaPipe
-- Example: scholar radar pipeline
+Primary pipes:
+- `metapipe` (meta generator)
+- `scholar-radar` (example business pipe)
+
+### 3) Compatibility Layer (`packs/`)
+- Reserved for legacy/compatibility migration
 
 ## Execution Model
 
-1. Load pack + roles + contracts
-2. Execute entry node
-3. For each node:
+1. Resolve pipe workflow
+2. Load roles + contracts
+3. Execute entry node
+4. For each node:
    - task: run executor and validate outputs
    - gate: evaluate checks
    - router: route by deviation type
-4. Persist state/events after each step
-5. Produce final report + artifacts
+5. Persist state/events after each step
+6. Produce final report + artifacts
 
 ## Deviation Loop
 
