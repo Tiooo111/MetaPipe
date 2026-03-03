@@ -23,7 +23,7 @@ function buildCardModels(papers) {
   return papers.map((p, i) => {
     const idx = String(i + 1).padStart(2, '0');
     const title = `${idx}. ${p.title || 'Untitled'}`;
-    const titleLines = wrapText(title, 34).slice(0, 3);
+    const titleLines = wrapText(title, 36).slice(0, 2);
 
     const tags = Array.isArray(p.tags) && p.tags.length ? p.tags.join(', ') : '—';
     const metaBase = `${p.arxivId || ''}  ·  ${tags}`.trim();
@@ -40,9 +40,9 @@ function buildCardModels(papers) {
     const expertReview = p.expertReview || '顶级AI评审：问题设置和实验设计有参考价值，建议关注泛化与复现成本。';
     const scholarTakeaway = p.scholarTakeaway || '学者即插即用：先复用关键模块做 A/B；未来启发：沿泛化与效率方向迭代。';
 
-    const authorLines = sectionLines(authorView, 48, 4);
-    const reviewLines = sectionLines(expertReview, 48, 4);
-    const takeawayLines = sectionLines(scholarTakeaway, 48, 5);
+    const authorLines = sectionLines(authorView, 52, 2);
+    const reviewLines = sectionLines(expertReview, 52, 2);
+    const takeawayLines = sectionLines(scholarTakeaway, 52, 3);
 
     const topPad = 30;
     const bottomPad = 26;
@@ -71,7 +71,7 @@ function buildCardModels(papers) {
       authorLines,
       reviewLines,
       takeawayLines,
-      cardHeight: Math.max(500, height)
+      cardHeight: Math.max(380, height)
     };
   });
 }
@@ -217,7 +217,7 @@ async function main() {
   await fs.writeFile(tmpSvg, svg, 'utf-8');
 
   // Rasterize SVG to PNG
-  await execFileP('convert', ['-density', '96', tmpSvg, outPath]);
+  await execFileP('convert', ['-density', '120', tmpSvg, outPath]);
 
   console.log(JSON.stringify({ ok: true, outPath, svgPath: tmpSvg, count: papers.length, width, height }, null, 2));
 }

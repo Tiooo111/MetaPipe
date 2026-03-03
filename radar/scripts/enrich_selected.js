@@ -108,46 +108,38 @@ function genAuthorView(p) {
   const sents = splitSentences(p.abstract);
   const s1 = sents[0] || firstSentence(p.abstract) || '本文提出一个针对关键难点的新方法。';
   const s2 = sents[1] || '方法上通过结构化建模与训练策略改进来提升效果。';
-  const s3 = sents[2] || '实验显示在核心指标或主观质量上有明显收益。';
 
-  return [
-    `作者视角-问题：${ensurePeriod(s1)}`,
-    `作者视角-方法：${ensurePeriod(s2)}`,
-    `作者视角-结果：${ensurePeriod(s3)}`
-  ].join(' ');
+  return `作者视角：问题=${ensurePeriod(s1)} 方法=${ensurePeriod(s2)}`;
 }
 
 function genExpertReview(p) {
   const strengths = [];
-  if (p.signals?.watchHit) strengths.push('命中重点作者/实验室，方向相关性高');
-  if (p.signals?.hfTrending?.rank) strengths.push(`进入 HF 趋势榜（#${p.signals.hfTrending.rank}），讨论热度高`);
-  if (p.signals?.github?.stars) strengths.push(`代码关注度较高（⭐${p.signals.github.stars}）`);
-  if ((p.tags || []).length) strengths.push(`覆盖关键主题：${p.tags.join('、')}`);
-  if (!strengths.length) strengths.push('问题定义清晰、方法链路完整，具备持续跟踪价值');
+  if (p.signals?.watchHit) strengths.push('命中重点作者/实验室');
+  if (p.signals?.hfTrending?.rank) strengths.push(`HF趋势#${p.signals.hfTrending.rank}`);
+  if (p.signals?.github?.stars) strengths.push(`代码热度⭐${p.signals.github.stars}`);
+  if ((p.tags || []).length) strengths.push(`主题覆盖:${p.tags.join('、')}`);
+  if (!strengths.length) strengths.push('问题定义清晰、方法链路完整');
 
   const risks = [];
-  if (!p.signals?.github?.stars) risks.push('公开工程信号偏弱，复现成本和细节不确定性偏高');
-  if ((p.tags || []).includes('Physics')) risks.push('物理一致性可能在复杂真实场景下退化');
-  if ((p.tags || []).includes('HOI')) risks.push('多人/多体交互的极端边界案例仍可能不稳定');
-  if (!risks.length) risks.push('跨数据集泛化与误差分解需要更细证据');
+  if (!p.signals?.github?.stars) risks.push('工程复现细节不充分');
+  if ((p.tags || []).includes('Physics')) risks.push('真实场景物理泛化待验证');
+  if ((p.tags || []).includes('HOI')) risks.push('交互边界案例稳定性待验证');
+  if (!risks.length) risks.push('跨数据集泛化仍需证据');
 
-  return `顶级AI评审：亮点——${strengths.slice(0, 3).join('；')}。风险——${risks.slice(0, 2).join('；')}。建议优先核验：消融完整性、跨域泛化、推理效率三项。`;
+  return `顶级AI评审：亮点=${strengths.slice(0, 2).join('；')}；风险=${risks.slice(0, 1).join('；')}；建议优先做跨域泛化与效率复核。`;
 }
 
 function genScholarTakeaway(p) {
-  const modules = detectModules(p);
+  const modules = detectModules(p).slice(0, 2);
 
   const moduleLines = modules.map((m, i) => {
-    return `模块${i + 1}「${m.name}」：作用=${m.role}；怎么用=${m.how}；用在哪里=${m.where}`;
+    return `模块${i + 1}:${m.name}｜作用:${m.role}｜接法:${m.how}｜场景:${m.where}`;
   });
 
   const titleHead = String(p.title || '该方向').split(':')[0].trim();
-  const plan = [
-    '落地顺序建议：先复现最小基线（1-2天）→ 插入单模块做A/B（2-3天）→ 多模块联调并做失败案例分析（3-5天）。',
-    `未来工作启发：围绕「${titleHead}」优先做三件事——(1) 模块解耦与可解释性；(2) 跨场景/跨数据泛化；(3) 面向部署的延迟与稳定性优化。`
-  ];
+  const plan = `启发：围绕「${titleHead}」优先做模块解耦、跨数据泛化、低延迟部署三件事。`;
 
-  return `${moduleLines.join(' ')} ${plan.join(' ')}`;
+  return `${moduleLines.join(' ')} ${plan}`;
 }
 
 async function main() {

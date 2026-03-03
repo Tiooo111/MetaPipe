@@ -3,18 +3,18 @@
   "daily": {
     "categories": ["cs.CV", "cs.GR", "cs.RO", "cs.AI"],
     "maxResults": 200,
-    "topN": 16,
-    "minScore": 1
+    "topN": 8,
+    "minScore": 8
   },
   "weekly": {
     "days": 7,
-    "topN": 18,
-    "minScore": 1
+    "topN": 10,
+    "minScore": 8
   },
   "monthly": {
     "days": 30,
-    "topN": 24,
-    "minScore": 1
+    "topN": 12,
+    "minScore": 8
   },
   "signals": {
     "github": { "enabled": true, "tokenEnv": "GITHUB_TOKEN" },
