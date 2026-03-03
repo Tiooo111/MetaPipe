@@ -36,13 +36,13 @@ function buildCardModels(papers) {
     const badgeLine = badges.join('   ·   ');
 
     const fallbackSummary = (p.summaryZh || p.summary || firstSentence(p.abstract) || '').trim();
-    const authorView = p.authorView || `作者视角：${fallbackSummary}`;
-    const expertReview = p.expertReview || '顶级AI评审：问题设置和实验设计有参考价值，建议关注泛化与复现成本。';
-    const scholarTakeaway = p.scholarTakeaway || '学者即插即用：先复用关键模块做 A/B；未来启发：沿泛化与效率方向迭代。';
+    const authorView = p.authorView || `作者陈述：${fallbackSummary}`;
+    const expertReview = p.expertReview || '专家评议：问题定义与方法设计完整，建议重点验证泛化与复现成本。';
+    const scholarTakeaway = p.scholarTakeaway || '研究落地与后续方向：优先抽取核心模块做A/B验证，并推进跨域泛化。';
 
     const authorLines = sectionLines(authorView, 52, 2);
     const reviewLines = sectionLines(expertReview, 52, 2);
-    const takeawayLines = sectionLines(scholarTakeaway, 52, 3);
+    const takeawayLines = sectionLines(scholarTakeaway, 52, 2);
 
     const topPad = 30;
     const bottomPad = 26;
@@ -71,7 +71,7 @@ function buildCardModels(papers) {
       authorLines,
       reviewLines,
       takeawayLines,
-      cardHeight: Math.max(380, height)
+      cardHeight: Math.max(340, height)
     };
   });
 }
@@ -79,7 +79,7 @@ function buildCardModels(papers) {
 function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }) {
   const marginX = 44;
   const top = 44;
-  const headerH = 210;
+  const headerH = 170;
   const gap = 26;
   const footerH = 80;
   const cardW = width - marginX * 2;
@@ -92,7 +92,7 @@ function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }
 
   const headerTitle = title || 'Scholar Radar';
   const headerSubtitle = subtitle || `Top ${cards.length} · signals: watchlist + broad scan + trending`;
-  const footerText = footer || '三板块：作者视角 / 顶级AI评审 / 学者即插即用+未来启发';
+  const footerText = footer || '三板块：作者陈述 / 专家评议 / 研究落地与后续方向';
 
   let svg = '';
   svg += `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -129,8 +129,6 @@ function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }
   svg += `<rect x="${marginX}" y="${top}" width="${cardW}" height="${headerH}" rx="30" fill="url(#heroGrad)" filter="url(#shadow)"/>`;
   svg += `<text x="${marginX + 30}" y="${top + 78}" font-family="${esc(fontFamily)}" font-size="50" font-weight="800" fill="#ffffff">${esc(headerTitle)}</text>`;
   svg += `<text x="${marginX + 30}" y="${top + 122}" font-family="${esc(fontFamily)}" font-size="26" font-weight="500" fill="#e0e7ff">${esc(headerSubtitle)}</text>`;
-  svg += `<text x="${marginX + 30}" y="${top + 166}" font-family="${esc(fontFamily)}" font-size="22" font-weight="600" fill="#dbeafe">三板块：作者视角｜顶级AI评审｜学者即插即用+未来启发</text>`;
-  svg += `<text x="${marginX + 30}" y="${top + 196}" font-family="${esc(fontFamily)}" font-size="20" font-weight="500" fill="#dbeafe">单列长图 · 大间距排版 · 避免文字重叠</text>`;
 
   const drawSection = (x, y, label, color, lines) => {
     let ty = y;
@@ -171,9 +169,9 @@ function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }
     }
 
     ty += 8;
-    ty = drawSection(x + 34, ty, '作者视角', '#1d4ed8', p.authorLines);
-    ty = drawSection(x + 34, ty, '顶级AI评审', '#7c2d12', p.reviewLines);
-    ty = drawSection(x + 34, ty, '学者即插即用 + 未来启发', '#065f46', p.takeawayLines);
+    ty = drawSection(x + 34, ty, '作者陈述', '#1d4ed8', p.authorLines);
+    ty = drawSection(x + 34, ty, '专家评议', '#7c2d12', p.reviewLines);
+    ty = drawSection(x + 34, ty, '研究落地与后续方向', '#065f46', p.takeawayLines);
 
     y += h + gap;
   }
@@ -217,7 +215,7 @@ async function main() {
   await fs.writeFile(tmpSvg, svg, 'utf-8');
 
   // Rasterize SVG to PNG
-  await execFileP('convert', ['-density', '120', tmpSvg, outPath]);
+  await execFileP('convert', ['-density', '96', tmpSvg, outPath]);
 
   console.log(JSON.stringify({ ok: true, outPath, svgPath: tmpSvg, count: papers.length, width, height }, null, 2));
 }

@@ -33,83 +33,78 @@ function ensurePeriod(text) {
   return /[。！？.!?]$/.test(s) ? s : `${s}。`;
 }
 
+function clip(s, n) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  return t.length <= n ? t : `${t.slice(0, n - 1)}…`;
+}
+
 function detectModules(p) {
   const txt = `${p.title || ''}\n${p.abstract || ''}`.toLowerCase();
   const modules = [];
 
   if (/diffusion|rectified flow|flow distillation|score model|denois/.test(txt)) {
     modules.push({
-      name: '生成主干（Diffusion / Flow）',
-      role: '负责从条件信息采样出高质量动作/轨迹，并决定多样性与稳定性',
-      how: '把你的生成器主干替换成同类扩散或流匹配结构，先冻结编码器做小规模对齐训练',
-      where: '用于动作生成主流程（采样阶段），直接影响可控性与保真度'
+      name: '生成主干（Diffusion/Flow）',
+      role: '控制生成质量与稳定性',
+      how: '替换主干并冻结编码器做对齐微调',
+      where: '用于动作生成采样阶段'
     });
   }
 
   if (/condition|controllable|trajectory|keyframe|prompt|text-to-motion|sketch/.test(txt)) {
     modules.push({
       name: '条件控制模块',
-      role: '把文本/草图/轨迹/关键帧等条件映射到可执行约束，减少“生成跑偏”',
-      how: '先接入你现有条件编码器，再把控制信号注入 cross-attn 或时序适配层做 ablation',
-      where: '用于推理时的可控生成入口，适合交互式编辑和约束驱动任务'
+      role: '把文本/轨迹约束映射到可控生成',
+      how: '条件编码后注入 cross-attn 或时序适配层',
+      where: '用于交互式编辑与约束驱动生成'
     });
   }
 
   if (/interaction|contact|grasp|handoff|human-object|hoi|ctmc|planner/.test(txt)) {
     modules.push({
-      name: '交互事件/接触建模模块',
-      role: '显式建模触碰、抓取、交接等离散事件，提升多人/人物体协同时序准确性',
-      how: '将事件序列作为中间监督，先在短序列上训练事件预测，再并入端到端生成',
-      where: '用于 HOI、多体协作、操作任务等需要接触一致性的场景'
+      name: '交互事件建模模块',
+      role: '提升接触与协同时序准确性',
+      how: '先训练事件预测，再并入端到端生成',
+      where: '用于 HOI、多体协作与操作任务'
     });
   }
 
   if (/physics|physical|dynamics|simulation|constraint|plausib/.test(txt)) {
     modules.push({
       name: '物理一致性约束模块',
-      role: '约束速度/接触/能量等物理量，减少脚滑、穿模、不合理受力',
-      how: '把物理损失作为可插拔正则项接到训练目标，先低权重启动后逐步提升',
-      where: '用于训练阶段和后处理阶段，尤其适合真实机器人或仿真迁移'
+      role: '降低脚滑/穿模等物理违例',
+      how: '将物理损失作为可插拔正则逐步加权',
+      where: '用于训练与后处理阶段'
     });
   }
 
   if (/3d|mesh|smpl|reconstruct|stereo|pose/.test(txt)) {
     modules.push({
-      name: '3D表示与重建模块',
-      role: '提供结构先验与几何一致性，提升跨视角稳定性和姿态精度',
-      how: '将其作为前置表征层（3D latent）接入你现有时序模型，再对下游任务微调',
-      where: '用于姿态估计、三维重建、世界模型与动作理解任务'
+      name: '3D表示模块',
+      role: '提供几何先验并提升姿态精度',
+      how: '作为前置表征层接入时序模型',
+      where: '用于重建、姿态与世界模型任务'
     });
   }
 
-  if (/distill|efficient|real-time|fps|lightweight/.test(txt)) {
-    modules.push({
-      name: '效率优化/蒸馏模块',
-      role: '降低推理时延和显存占用，保持可部署性',
-      how: '先用 teacher-student 蒸馏得到轻量模型，再针对目标硬件做量化/裁剪',
-      where: '用于在线系统、实时交互和资源受限部署'
-    });
-  }
-
-  // fallback
   if (!modules.length) {
     modules.push({
-      name: '任务核心模块',
-      role: '围绕论文目标构建从输入条件到输出预测的端到端链路',
-      how: '先抽取其主损失和主网络骨架，映射到你现有 pipeline 做最小可行复现',
-      where: '用于快速验证论文思想是否能在你的数据与任务上成立'
+      name: '核心建模模块',
+      role: '构建从条件到预测的主链路',
+      how: '抽取主损失和骨架后做最小复现',
+      where: '用于快速验证论文可迁移性'
     });
   }
 
-  return modules.slice(0, 3);
+  return modules.slice(0, 2);
 }
 
-function genAuthorView(p) {
+function genAuthorStatement(p) {
   const sents = splitSentences(p.abstract);
-  const s1 = sents[0] || firstSentence(p.abstract) || '本文提出一个针对关键难点的新方法。';
-  const s2 = sents[1] || '方法上通过结构化建模与训练策略改进来提升效果。';
-
-  return `作者视角：问题=${ensurePeriod(s1)} 方法=${ensurePeriod(s2)}`;
+  const problem = sents[0] || firstSentence(p.abstract) || '论文针对关键任务提出新方法。';
+  const method = sents[1] || '通过结构化建模与训练策略改进性能。';
+  return `作者陈述：问题=${ensurePeriod(clip(problem, 70))} 方法=${ensurePeriod(clip(method, 70))}`;
 }
 
 function genExpertReview(p) {
@@ -117,29 +112,31 @@ function genExpertReview(p) {
   if (p.signals?.watchHit) strengths.push('命中重点作者/实验室');
   if (p.signals?.hfTrending?.rank) strengths.push(`HF趋势#${p.signals.hfTrending.rank}`);
   if (p.signals?.github?.stars) strengths.push(`代码热度⭐${p.signals.github.stars}`);
-  if ((p.tags || []).length) strengths.push(`主题覆盖:${p.tags.join('、')}`);
   if (!strengths.length) strengths.push('问题定义清晰、方法链路完整');
 
   const risks = [];
-  if (!p.signals?.github?.stars) risks.push('工程复现细节不充分');
+  if (!p.signals?.github?.stars) risks.push('工程复现细节不足');
   if ((p.tags || []).includes('Physics')) risks.push('真实场景物理泛化待验证');
   if ((p.tags || []).includes('HOI')) risks.push('交互边界案例稳定性待验证');
-  if (!risks.length) risks.push('跨数据集泛化仍需证据');
+  if (!risks.length) risks.push('跨数据集泛化证据仍需增强');
 
-  return `顶级AI评审：亮点=${strengths.slice(0, 2).join('；')}；风险=${risks.slice(0, 1).join('；')}；建议优先做跨域泛化与效率复核。`;
+  return `专家评议：亮点=${strengths.slice(0, 2).join('；')}；风险=${risks[0]}；建议优先复核跨域泛化与推理效率。`;
 }
 
-function genScholarTakeaway(p) {
-  const modules = detectModules(p).slice(0, 2);
+function genResearchIntegration(p) {
+  const modules = detectModules(p);
+  const m1 = modules[0];
+  const m2 = modules[1];
 
-  const moduleLines = modules.map((m, i) => {
-    return `模块${i + 1}:${m.name}｜作用:${m.role}｜接法:${m.how}｜场景:${m.where}`;
-  });
+  const part1 = m1
+    ? `模块A(${m1.name})：作用=${m1.role}；接入=${m1.how}；应用=${m1.where}。`
+    : '';
+  const part2 = m2
+    ? `模块B(${m2.name})：作用=${m2.role}；接入=${m2.how}；应用=${m2.where}。`
+    : '';
 
-  const titleHead = String(p.title || '该方向').split(':')[0].trim();
-  const plan = `启发：围绕「${titleHead}」优先做模块解耦、跨数据泛化、低延迟部署三件事。`;
-
-  return `${moduleLines.join(' ')} ${plan}`;
+  const direction = '后续方向：优先做模块解耦实验、跨数据泛化验证、低延迟部署优化。';
+  return `研究落地与后续方向：${clip(part1, 88)} ${clip(part2, 88)} ${direction}`.trim();
 }
 
 async function main() {
@@ -156,26 +153,20 @@ async function main() {
 
   const papers = (selected.papers || []).map((p) => {
     const summary = (p.summary || firstSentence(p.abstract) || '').trim();
-    const authorView = genAuthorView(p);
-    const expertReview = genExpertReview(p);
-    const scholarTakeaway = genScholarTakeaway(p);
-
     return {
       ...p,
       summary,
-      authorView,
-      expertReview,
-      scholarTakeaway
+      authorView: genAuthorStatement(p),
+      expertReview: genExpertReview(p),
+      scholarTakeaway: genResearchIntegration(p)
     };
   });
 
-  const rangeText = range?.from && range?.to
-    ? `${range.from} → ${range.to}`
-    : date;
+  const rangeText = range?.from && range?.to ? `${range.from} → ${range.to}` : date;
 
   const title = `Scholar Radar · ${date} · Motion + HOI`;
   const subtitle = `${kindLabel(kind)} · ${rangeText} · Top ${papers.length}`;
-  const footer = '三板块：作者视角 / 顶级AI评审 / 学者即插即用+未来启发';
+  const footer = '三板块：作者陈述 / 专家评议 / 研究落地与后续方向';
 
   const enriched = {
     ...selected,

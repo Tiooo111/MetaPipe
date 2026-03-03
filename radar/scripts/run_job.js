@@ -77,9 +77,9 @@ function fmtList(papers, limit = 10) {
 
     lines.push(`${idx}. ${p.title}${sigTxt}`);
     lines.push(`链接: ${p.absUrl}`);
-    lines.push(`作者视角: ${shortText(p.authorView || p.summary, 110)}`);
-    lines.push(`专家评审: ${shortText(p.expertReview, 110)}`);
-    lines.push(`学者即插即用: ${shortText(p.scholarTakeaway, 130)}`);
+    lines.push(`作者陈述: ${shortText(p.authorView || p.summary, 110)}`);
+    lines.push(`专家评议: ${shortText(p.expertReview, 110)}`);
+    lines.push(`研究落地: ${shortText(p.scholarTakeaway, 130)}`);
     lines.push('');
   }
   return lines.join('\n').trim();
