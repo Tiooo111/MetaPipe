@@ -2,3 +2,12 @@ node_modules/
 .runs/
 .openclaw/
 *.log
+
+# Workspace persona/runtime files (not part of MetaPipe source)
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md

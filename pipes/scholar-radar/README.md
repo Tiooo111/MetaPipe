@@ -10,7 +10,7 @@ Automation scaffolding for the `scholar` agent:
 ## Quick test (inside the container)
 
 ```bash
-cd /home/node/.openclaw/workspace-scholar/radar
+cd /home/node/.openclaw/workspace-scholar/pipes/scholar-radar
 node scripts/fetch_and_rank.js --kind daily
 node scripts/enrich_selected.js --in output/daily/$(date +%F).selected.json --out output/daily/$(date +%F).enriched.json --kind daily
 node scripts/render_poster.js --in output/daily/$(date +%F).enriched.json --out output/daily/$(date +%F).poster.png
