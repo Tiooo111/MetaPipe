@@ -119,7 +119,20 @@ async function fetchHfTrendingArxivIds({ url, limit = 80 }) {
   return out;
 }
 
+function parseArgs(argv) {
+  const args = { kind: 'daily', days: null };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--kind') args.kind = argv[++i];
+    else if (a === '--days') args.days = Number(argv[++i]);
+  }
+  return args;
+}
+
 async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const kind = (args.kind || 'daily').toLowerCase();
+
   const settings = await readJson(path.join(CONFIG_DIR, 'settings.json'));
   const watch = await readJson(path.join(CONFIG_DIR, 'watchlist.json'));
   const keywords = await readJson(path.join(CONFIG_DIR, 'keywords.json'));
@@ -128,7 +141,22 @@ async function main() {
   const now = new Date();
   const todayYmd = ymdInTz(now, tz);
 
-  const url = buildArxivQuery(settings.daily.categories, settings.daily.maxResults);
+  const kindCfg = settings[kind] || {};
+  const dailyCfg = settings.daily || {};
+
+  const days = Number.isFinite(args.days) && args.days > 0
+    ? args.days
+    : (kindCfg.days || (kind === 'daily' ? 1 : (kind === 'weekly' ? 7 : 30)));
+
+  const allowed = new Set();
+  for (let i = 0; i < days; i++) {
+    allowed.add(ymdInTz(new Date(now.getTime() - i * 24 * 3600 * 1000), tz));
+  }
+
+  const maxResults = kindCfg.maxResults || dailyCfg.maxResults || 200;
+  const categories = dailyCfg.categories || ['cs.CV'];
+
+  const url = buildArxivQuery(categories, maxResults);
   const atom = await fetch(url).then((r) => r.text());
 
   const parser = new XMLParser({
@@ -168,10 +196,9 @@ async function main() {
     const title = String(e.title || '').replace(/\s+/g, ' ').trim();
     const summary = String(e.summary || '').replace(/\s+/g, ' ').trim();
     const published = new Date(e.published);
-    const updated = new Date(e.updated);
 
     const pubYmd = ymdInTz(published, tz);
-    if (pubYmd !== todayYmd) continue;
+    if (!allowed.has(pubYmd)) continue;
 
     const authorsRaw = e.author ? (Array.isArray(e.author) ? e.author : [e.author]) : [];
     const authors = authorsRaw.map((a) => String(a.name || '').trim()).filter(Boolean);
@@ -232,19 +259,28 @@ async function main() {
 
   papers.sort((a, b) => b.score - a.score);
 
-  const topN = settings.daily.topN;
-  const selected = papers.filter((p) => p.score >= settings.daily.minScore).slice(0, topN);
+  const topN = kindCfg.topN || dailyCfg.topN || 16;
+  const minScore = kindCfg.minScore ?? dailyCfg.minScore ?? 1;
+
+  const selected = papers.filter((p) => p.score >= minScore).slice(0, topN);
 
   await saveGithubCache(ghCache);
 
-  const outDir = path.join(OUTPUT_DIR, 'daily');
+  const outDir = path.join(OUTPUT_DIR, kind);
   const candidatesPath = path.join(outDir, `${todayYmd}.candidates.json`);
   const selectedPath = path.join(outDir, `${todayYmd}.selected.json`);
 
-  await writeJson(candidatesPath, { generatedAt: now.toISOString(), tz, date: todayYmd, count: papers.length, papers });
-  await writeJson(selectedPath, { generatedAt: now.toISOString(), tz, date: todayYmd, count: selected.length, papers: selected });
+  const range = {
+    days,
+    to: todayYmd,
+    from: [...allowed].sort()[0]
+  };
 
-  console.log(JSON.stringify({ date: todayYmd, candidatesPath, selectedPath, count: selected.length }, null, 2));
+  await writeJson(candidatesPath, { generatedAt: now.toISOString(), tz, kind, date: todayYmd, range, count: papers.length, papers });
+  await writeJson(selectedPath, { generatedAt: now.toISOString(), tz, kind, date: todayYmd, range, count: selected.length, papers: selected });
+
+  // Single-line JSON for easy machine parsing.
+  console.log(JSON.stringify({ kind, date: todayYmd, range, candidatesPath, selectedPath, count: selected.length }));
 }
 
 main().catch((err) => {

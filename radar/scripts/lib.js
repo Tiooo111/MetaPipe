@@ -27,6 +27,11 @@ export function parseArxivId(idUrl) {
   return m ? m[1] : null;
 }
 
+export function baseArxivId(arxivId) {
+  // 2603.02190v1 -> 2603.02190
+  return String(arxivId || '').replace(/v\d+$/i, '');
+}
+
 export function firstSentence(text) {
   const s = String(text || '').replace(/\s+/g, ' ').trim();
   if (!s) return '';

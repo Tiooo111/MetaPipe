@@ -6,9 +6,25 @@
     "topN": 16,
     "minScore": 1
   },
+  "weekly": {
+    "days": 7,
+    "topN": 18,
+    "minScore": 1
+  },
+  "monthly": {
+    "days": 30,
+    "topN": 24,
+    "minScore": 1
+  },
   "signals": {
     "github": { "enabled": true, "tokenEnv": "GITHUB_TOKEN" },
-    "paperswithcode": { "enabled": true }
+    "hfTrending": {
+      "enabled": true,
+      "url": "https://huggingface.co/papers/trending",
+      "limit": 80,
+      "boost": 24,
+      "rankDecay": 0.25
+    }
   },
   "poster": {
     "width": 1080,

@@ -4,3 +4,4 @@ papers/
 data/
 *.log
 .DS_Store
+config/local.json

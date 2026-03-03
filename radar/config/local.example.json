@@ -1,0 +1,9 @@
+{
+  "delivery": {
+    "channel": "whatsapp",
+    "to": "+15551234567"
+  },
+  "language": {
+    "summary": "zh"
+  }
+}
