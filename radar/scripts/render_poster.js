@@ -206,10 +206,6 @@ function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }
     svg += `<rect x="${x}" y="${y}" width="${cardW}" height="${h}" rx="26" fill="#ffffff" stroke="#dbe3ff" stroke-width="2" filter="url(#shadow)"/>`;
     svg += `<rect x="${x}" y="${y}" width="12" height="${h}" rx="26" fill="url(#accentGrad)"/>`;
 
-    const clipId = `clip-${p.idx}`;
-    svg += `<clipPath id="${clipId}"><rect x="${x + 18}" y="${y + 10}" width="${cardW - 36}" height="${h - 20}" rx="18"/></clipPath>`;
-    svg += `<g clip-path="url(#${clipId})">`;
-
     let ty = y + 46;
     for (const line of p.titleLines) {
       svg += `<text x="${x + 34}" y="${ty}" font-family="${esc(fontFamily)}" font-size="30" font-weight="800" fill="#0f172a">${esc(line)}</text>`;
@@ -233,7 +229,6 @@ function mkSvg({ width, minHeight, fontFamily, title, subtitle, footer, papers }
     ty = drawSection(x + 34, ty, '专家评议', '#7c2d12', p.reviewLines);
     ty = drawSection(x + 34, ty, '研究落地与后续方向', '#065f46', p.takeawayLines);
 
-    svg += `</g>`;
     y += h + gap;
   }
 
