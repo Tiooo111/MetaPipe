@@ -1,0 +1,11 @@
+{
+  "name": "workspace-scholar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wf:run": "node engine/wf-runner.js"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  }
+}

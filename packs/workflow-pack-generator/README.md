@@ -18,3 +18,22 @@ Given a task description, this pack produces:
 
 ## Core Principle
 `requirements.md` is the single source of truth for all downstream roles.
+
+## Minimal Executor (v0)
+Run the pack with the generic runner:
+
+```bash
+cd /home/node/.openclaw/workspace-scholar
+node engine/wf-runner.js \
+  --workflow packs/workflow-pack-generator/workflow.yaml
+```
+
+Optional deviation injection test:
+
+```bash
+node engine/wf-runner.js \
+  --workflow packs/workflow-pack-generator/workflow.yaml \
+  --inject-deviation implementation_bug
+```
+
+Outputs are written under `.runs/<run-id>/` with `execution_report.json`.
