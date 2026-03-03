@@ -56,6 +56,33 @@ async function sendWhatsapp({ to, message, mediaPath, dryRun }) {
   return { ok: true, stdout, stderr };
 }
 
+async function imageSize(filePath) {
+  const { stdout } = await execFileP('identify', ['-format', '%w %h', filePath], { cwd: ROOT, timeout: 30 * 1000 });
+  const [w, h] = String(stdout || '').trim().split(/\s+/).map((x) => Number(x));
+  if (!Number.isFinite(w) || !Number.isFinite(h)) {
+    throw new Error(`Failed to read image size: ${filePath}`);
+  }
+  return { w, h };
+}
+
+async function sliceLongImage(inPath, outDir, chunkHeight = 1800) {
+  const { w, h } = await imageSize(inPath);
+  if (h <= chunkHeight) return [inPath];
+
+  const parts = [];
+  let y = 0;
+  let idx = 1;
+  while (y < h) {
+    const thisH = Math.min(chunkHeight, h - y);
+    const outPath = path.join(outDir, `${path.parse(inPath).name}.part${String(idx).padStart(2, '0')}.png`);
+    await execFileP('convert', [inPath, '-crop', `${w}x${thisH}+0+${y}`, '+repage', outPath], { cwd: ROOT, timeout: 90 * 1000 });
+    parts.push(outPath);
+    y += thisH;
+    idx += 1;
+  }
+  return parts;
+}
+
 function shortText(s, max = 140) {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   if (!t) return '';
@@ -139,14 +166,23 @@ async function main() {
   await fs.copyFile(posterPath, stagedPoster);
 
   const caption = `${enriched?.title || `Scholar Radar · ${j1.date}`}\n${enriched?.subtitle || ''}`.trim();
-  await sendWhatsapp({ to, message: caption, mediaPath: stagedPoster, dryRun: args.dryRun });
+
+  // WhatsApp image transport tends to downscale very tall images heavily.
+  // Slice the long poster into multiple high-clarity pages.
+  const posterParts = await sliceLongImage(stagedPoster, stageDir, 1800);
+  for (let i = 0; i < posterParts.length; i++) {
+    const pageMsg = i === 0
+      ? `${caption}\n高清分段图 ${i + 1}/${posterParts.length}`
+      : `高清分段图 ${i + 1}/${posterParts.length}`;
+    await sendWhatsapp({ to, message: pageMsg, mediaPath: posterParts[i], dryRun: args.dryRun });
+  }
 
   const listMsg = fmtList(enriched.papers || [], kind === 'daily' ? 10 : 12);
   if (listMsg) {
     await sendWhatsapp({ to, message: listMsg, mediaPath: null, dryRun: args.dryRun });
   }
 
-  console.log(JSON.stringify({ ok: true, kind, to, selectedPath, enrichedPath, posterPath, papersDir, count: selected.count }, null, 2));
+  console.log(JSON.stringify({ ok: true, kind, to, selectedPath, enrichedPath, posterPath, posterParts: posterParts.length, papersDir, count: selected.count }, null, 2));
 }
 
 main().catch((e) => {
