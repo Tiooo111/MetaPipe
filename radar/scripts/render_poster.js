@@ -24,18 +24,6 @@ function charUnits(ch) {
   return 0.68;
 }
 
-function trimToUnits(text, maxUnits) {
-  let out = '';
-  let used = 0;
-  for (const ch of String(text || '')) {
-    const u = charUnits(ch);
-    if (used + u > maxUnits) break;
-    out += ch;
-    used += u;
-  }
-  return out.trim();
-}
-
 function wrapByUnits(text, maxUnits, maxLines) {
   const s = String(text || '').replace(/\s+/g, ' ').trim();
   if (!s) return [];
@@ -60,13 +48,6 @@ function wrapByUnits(text, maxUnits, maxLines) {
   if (lines.length < maxLines && line.trim()) lines.push(line.trim());
 
   if (lines.length > maxLines) lines.length = maxLines;
-
-  // Ellipsis on truncation
-  const consumed = lines.join('').length;
-  if (consumed < s.length && lines.length) {
-    const last = trimToUnits(lines[lines.length - 1], Math.max(2, maxUnits - 1.2));
-    lines[lines.length - 1] = `${last}…`;
-  }
 
   return lines;
 }

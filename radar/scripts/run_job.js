@@ -56,11 +56,35 @@ async function sendWhatsapp({ to, message, mediaPath, dryRun }) {
   return { ok: true, stdout, stderr };
 }
 
+async function publishMarkdownReport(mdPath, dryRun) {
+  if (dryRun) return null;
+
+  const text = await fs.readFile(mdPath, 'utf-8');
+  const editCode = `scholar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const body = new URLSearchParams({ text, edit_code: editCode });
+
+  const res = await fetch('https://rentry.co/api/new', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': 'https://rentry.co'
+    },
+    body
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || String(json.status) !== '200' || !json.url) {
+    throw new Error(`rentry publish failed: http=${res.status} body=${JSON.stringify(json)}`);
+  }
+
+  return { url: json.url, editCode };
+}
+
 
 function shortText(s, max = 140) {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   if (!t) return '';
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+  return t.length > max ? t.slice(0, max) : t;
 }
 
 function fmtList(papers, limit = 10) {
@@ -122,32 +146,50 @@ async function main() {
   await runNode('enrich_selected.js', ['--in', selectedPath, '--out', enrichedPath, '--kind', kind]);
   const enriched = await readJson(enrichedPath);
 
-  // 3) Render poster
+  // 3) Render poster (concise image content)
   const posterPath = selectedPath.replace(/\.selected\.json$/i, '.poster.png');
   await runNode('render_poster.js', ['--in', enrichedPath, '--out', posterPath]);
 
-  // 4) Download PDFs
+  // 4) Build full detailed markdown report
+  const reportPath = selectedPath.replace(/\.selected\.json$/i, '.report.md');
+  await runNode('write_report_md.js', ['--in', enrichedPath, '--out', reportPath]);
+
+  // 5) Download PDFs
   const papersDir = path.join(ROOT, 'papers', kind, selected.date || j1.date);
   await runNode('download_pdfs.js', ['--in', selectedPath, '--outdir', papersDir]);
 
-  // 5) Send to WhatsApp
+  // 6) Send to WhatsApp
   // openclaw message send restricts local media paths to safe allowlisted roots.
-  // Stage the poster into the main workspace to satisfy the allowlist.
+  // Stage the poster/report into the main workspace to satisfy the allowlist.
   const stageRoot = '/home/node/.openclaw/workspace/media-out/scholar-radar';
   const stageDir = path.join(stageRoot, kind, enriched.date || selected.date || j1.date);
   await fs.mkdir(stageDir, { recursive: true });
   const stagedPoster = path.join(stageDir, path.basename(posterPath));
   await fs.copyFile(posterPath, stagedPoster);
 
-  const caption = `${enriched?.title || `Scholar Radar · ${j1.date}`}\n${enriched?.subtitle || ''}\n一图流（精简高价值版）`.trim();
+  const stagedReport = path.join(stageDir, path.basename(reportPath));
+  await fs.copyFile(reportPath, stagedReport);
+
+  const reportPub = await publishMarkdownReport(stagedReport, args.dryRun);
+
+  const caption = `${enriched?.title || `Scholar Radar · ${j1.date}`}\n${enriched?.subtitle || ''}\n一图流（精简版）`.trim();
   await sendWhatsapp({ to, message: caption, mediaPath: stagedPoster, dryRun: args.dryRun });
+
+  if (reportPub?.url) {
+    await sendWhatsapp({
+      to,
+      message: `详细版Markdown报告（在线浏览）：${reportPub.url}`,
+      mediaPath: null,
+      dryRun: args.dryRun
+    });
+  }
 
   const listMsg = fmtList(enriched.papers || [], kind === 'daily' ? 8 : 10);
   if (listMsg) {
     await sendWhatsapp({ to, message: listMsg, mediaPath: null, dryRun: args.dryRun });
   }
 
-  console.log(JSON.stringify({ ok: true, kind, to, selectedPath, enrichedPath, posterPath, papersDir, count: selected.count }, null, 2));
+  console.log(JSON.stringify({ ok: true, kind, to, selectedPath, enrichedPath, posterPath, reportPath, reportUrl: reportPub?.url || null, papersDir, count: selected.count }, null, 2));
 }
 
 main().catch((e) => {

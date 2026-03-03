@@ -104,15 +104,15 @@ function genAuthorStatement(p) {
   const sents = splitSentences(p.abstract);
   const problem = sents[0] || firstSentence(p.abstract) || '论文针对关键任务提出新方法。';
   const method = sents[1] || '通过结构化建模与训练策略改进性能。';
-  return `作者陈述：问题=${ensurePeriod(clip(problem, 70))} 方法=${ensurePeriod(clip(method, 70))}`;
+  return `作者陈述：论文关注的问题是 ${ensurePeriod(clip(problem, 70))} 方法上采用 ${ensurePeriod(clip(method, 70))}`;
 }
 
 function genExpertReview(p) {
   const strengths = [];
-  if (p.signals?.watchHit) strengths.push('命中重点作者/实验室');
-  if (p.signals?.hfTrending?.rank) strengths.push(`HF趋势#${p.signals.hfTrending.rank}`);
-  if (p.signals?.github?.stars) strengths.push(`代码热度⭐${p.signals.github.stars}`);
-  if (!strengths.length) strengths.push('问题定义清晰、方法链路完整');
+  if (p.signals?.watchHit) strengths.push('命中重点作者或实验室');
+  if (p.signals?.hfTrending?.rank) strengths.push(`进入 HF 趋势榜第 ${p.signals.hfTrending.rank} 位`);
+  if (p.signals?.github?.stars) strengths.push(`代码热度较高（⭐${p.signals.github.stars}）`);
+  if (!strengths.length) strengths.push('问题定义清晰，方法链路完整');
 
   const risks = [];
   if (!p.signals?.github?.stars) risks.push('工程复现细节不足');
@@ -120,7 +120,7 @@ function genExpertReview(p) {
   if ((p.tags || []).includes('HOI')) risks.push('交互边界案例稳定性待验证');
   if (!risks.length) risks.push('跨数据集泛化证据仍需增强');
 
-  return `专家评议：亮点=${strengths.slice(0, 2).join('；')}；风险=${risks[0]}；建议优先复核跨域泛化与推理效率。`;
+  return `专家评议：主要亮点包括 ${strengths.slice(0, 2).join('；')}。主要风险是 ${risks[0]}。建议优先复核跨域泛化能力与推理效率。`;
 }
 
 function genResearchIntegration(p) {
@@ -129,13 +129,13 @@ function genResearchIntegration(p) {
   const m2 = modules[1];
 
   const part1 = m1
-    ? `模块A(${m1.name})：作用=${m1.role}；接入=${m1.how}；应用=${m1.where}。`
+    ? `模块A（${m1.name}）：作用是${m1.role}；接入方式是${m1.how}；适用场景是${m1.where}。`
     : '';
   const part2 = m2
-    ? `模块B(${m2.name})：作用=${m2.role}；接入=${m2.how}；应用=${m2.where}。`
+    ? `模块B（${m2.name}）：作用是${m2.role}；接入方式是${m2.how}；适用场景是${m2.where}。`
     : '';
 
-  const direction = '后续方向：优先做模块解耦实验、跨数据泛化验证、低延迟部署优化。';
+  const direction = '后续方向建议优先做模块解耦实验、跨数据泛化验证和低延迟部署优化。';
   return `研究落地与后续方向：${clip(part1, 88)} ${clip(part2, 88)} ${direction}`.trim();
 }
 

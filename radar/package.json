@@ -9,7 +9,8 @@
     "render": "node scripts/render_poster.js",
     "run:daily": "node scripts/run_job.js daily",
     "run:weekly": "node scripts/run_job.js weekly",
-    "run:monthly": "node scripts/run_job.js monthly"
+    "run:monthly": "node scripts/run_job.js monthly",
+    "report": "node scripts/write_report_md.js"
   },
   "dependencies": {
     "fast-xml-parser": "^4.5.0"
