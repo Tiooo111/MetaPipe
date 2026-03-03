@@ -1,0 +1,19 @@
+{
+  "timezone": "Asia/Shanghai",
+  "daily": {
+    "categories": ["cs.CV", "cs.GR", "cs.RO", "cs.AI"],
+    "maxResults": 200,
+    "topN": 16,
+    "minScore": 1
+  },
+  "signals": {
+    "github": { "enabled": true, "tokenEnv": "GITHUB_TOKEN" },
+    "paperswithcode": { "enabled": true }
+  },
+  "poster": {
+    "width": 1080,
+    "height": 1920,
+    "fontFamily": "WenQuanYi Zen Hei",
+    "maxItemsSingleColumn": 12
+  }
+}

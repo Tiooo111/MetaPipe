@@ -1,0 +1,32 @@
+{
+  "positive": [
+    "human motion",
+    "motion generation",
+    "text-to-motion",
+    "diffusion",
+    "3D human",
+    "pose",
+    "HOI",
+    "human-object",
+    "interaction",
+    "contact",
+    "grasp",
+    "manipulation",
+    "affordance",
+    "scene",
+    "physics",
+    "dynamics"
+  ],
+  "negative": [
+    "medical",
+    "galaxy",
+    "astronomy"
+  ],
+  "tags": {
+    "T2M": ["text-to-motion", "text to motion"],
+    "HOI": ["human-object", "hoi", "interaction", "contact"],
+    "Physics": ["physics", "dynamics", "physical", "simulation"],
+    "Diffusion": ["diffusion"],
+    "3D": ["3d", "mesh", "smpl"]
+  }
+}

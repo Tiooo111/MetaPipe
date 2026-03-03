@@ -1,0 +1,12 @@
+{
+  "name": "scholar-radar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "daily": "node radar/scripts/daily_fetch_and_rank.js",
+    "render": "node radar/scripts/render_poster.js"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.5.0"
+  }
+}
