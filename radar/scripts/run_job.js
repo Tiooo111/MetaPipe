@@ -56,7 +56,13 @@ async function sendWhatsapp({ to, message, mediaPath, dryRun }) {
   return { ok: true, stdout, stderr };
 }
 
-function fmtList(papers, limit = 16) {
+function shortText(s, max = 140) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+function fmtList(papers, limit = 10) {
   const lines = [];
   const top = papers.slice(0, limit);
   for (let i = 0; i < top.length; i++) {
@@ -67,8 +73,12 @@ function fmtList(papers, limit = 16) {
     if (p.signals?.hfTrending?.rank) sig.push(`HF#${p.signals.hfTrending.rank}`);
     if (p.signals?.github?.stars) sig.push(`⭐${p.signals.github.stars}`);
     const sigTxt = sig.length ? ` (${sig.join(', ')})` : '';
+
     lines.push(`${idx}. ${p.title}${sigTxt}`);
-    lines.push(`${p.absUrl}`);
+    lines.push(`链接: ${p.absUrl}`);
+    lines.push(`作者视角: ${shortText(p.authorView || p.summary, 150)}`);
+    lines.push(`专家评审: ${shortText(p.expertReview, 150)}`);
+    lines.push(`学者即插即用: ${shortText(p.scholarTakeaway, 160)}`);
     lines.push('');
   }
   return lines.join('\n').trim();
@@ -106,9 +116,10 @@ async function main() {
   const selectedPath = path.resolve(ROOT, j1.selectedPath);
   const selected = await readJson(selectedPath);
 
-  // 2) Enrich (deterministic stub)
+  // 2) Enrich (three-block description)
   const enrichedPath = selectedPath.replace(/\.selected\.json$/i, '.enriched.json');
   await runNode('enrich_selected.js', ['--in', selectedPath, '--out', enrichedPath, '--kind', kind]);
+  const enriched = await readJson(enrichedPath);
 
   // 3) Render poster
   const posterPath = selectedPath.replace(/\.selected\.json$/i, '.poster.png');
@@ -122,15 +133,15 @@ async function main() {
   // openclaw message send restricts local media paths to safe allowlisted roots.
   // Stage the poster into the main workspace to satisfy the allowlist.
   const stageRoot = '/home/node/.openclaw/workspace/media-out/scholar-radar';
-  const stageDir = path.join(stageRoot, kind, selected.date || j1.date);
+  const stageDir = path.join(stageRoot, kind, enriched.date || selected.date || j1.date);
   await fs.mkdir(stageDir, { recursive: true });
   const stagedPoster = path.join(stageDir, path.basename(posterPath));
   await fs.copyFile(posterPath, stagedPoster);
 
-  const caption = `${selected?.title || `Scholar Radar · ${j1.date}`}\n${selected?.subtitle || ''}`.trim();
+  const caption = `${enriched?.title || `Scholar Radar · ${j1.date}`}\n${enriched?.subtitle || ''}`.trim();
   await sendWhatsapp({ to, message: caption, mediaPath: stagedPoster, dryRun: args.dryRun });
 
-  const listMsg = fmtList(selected.papers || [], 24);
+  const listMsg = fmtList(enriched.papers || [], kind === 'daily' ? 10 : 12);
   if (listMsg) {
     await sendWhatsapp({ to, message: listMsg, mediaPath: null, dryRun: args.dryRun });
   }
