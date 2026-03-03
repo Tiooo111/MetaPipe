@@ -33,10 +33,14 @@ function ensurePeriod(text) {
   return /[。！？.!?]$/.test(s) ? s : `${s}。`;
 }
 
-function clip(s, n) {
-  const t = String(s || '').replace(/\s+/g, ' ').trim();
-  if (!t) return '';
-  return t.length <= n ? t : `${t.slice(0, n - 1)}…`;
+function topicFromTags(tags) {
+  const t = new Set(tags || []);
+  if (t.has('HOI') && t.has('Physics')) return '人物-物体交互与物理一致性';
+  if (t.has('HOI')) return '人物-物体交互';
+  if (t.has('Diffusion')) return '可控生成';
+  if (t.has('3D')) return '三维建模与重建';
+  if (t.has('Physics')) return '物理一致性建模';
+  return '目标任务建模';
 }
 
 function detectModules(p) {
@@ -101,42 +105,34 @@ function detectModules(p) {
 }
 
 function genAuthorStatement(p) {
-  const sents = splitSentences(p.abstract);
-  const problem = sents[0] || firstSentence(p.abstract) || '论文针对关键任务提出新方法。';
-  const method = sents[1] || '通过结构化建模与训练策略改进性能。';
-  return `作者陈述：论文关注的问题是 ${ensurePeriod(clip(problem, 70))} 方法上采用 ${ensurePeriod(clip(method, 70))}`;
+  const modules = detectModules(p);
+  const topic = topicFromTags(p.tags || []);
+  const core = modules[0]?.name || '核心建模模块';
+  return `作者陈述：聚焦${topic}任务，核心方法采用${core}来提升结果稳定性与可控性。`;
 }
 
 function genExpertReview(p) {
-  const strengths = [];
-  if (p.signals?.watchHit) strengths.push('命中重点作者或实验室');
-  if (p.signals?.hfTrending?.rank) strengths.push(`进入 HF 趋势榜第 ${p.signals.hfTrending.rank} 位`);
-  if (p.signals?.github?.stars) strengths.push(`代码热度较高（⭐${p.signals.github.stars}）`);
-  if (!strengths.length) strengths.push('问题定义清晰，方法链路完整');
+  const innovation = detectModules(p)[0]?.name || '核心建模模块';
+  const evidence = p.signals?.hfTrending?.rank
+    ? `外部热度较高（HF趋势#${p.signals.hfTrending.rank}）`
+    : '当前外部热度证据中性';
 
-  const risks = [];
-  if (!p.signals?.github?.stars) risks.push('工程复现细节不足');
-  if ((p.tags || []).includes('Physics')) risks.push('真实场景物理泛化待验证');
-  if ((p.tags || []).includes('HOI')) risks.push('交互边界案例稳定性待验证');
-  if (!risks.length) risks.push('跨数据集泛化证据仍需增强');
+  let risk = '跨数据集泛化仍需进一步实证';
+  if ((p.tags || []).includes('Physics')) risk = '复杂真实场景下的物理一致性有待验证';
+  else if ((p.tags || []).includes('HOI')) risk = '多体交互边界案例稳定性有待验证';
 
-  return `专家评议：主要亮点包括 ${strengths.slice(0, 2).join('；')}。主要风险是 ${risks[0]}。建议优先复核跨域泛化能力与推理效率。`;
+  return `专家评议：创新点在${innovation}；证据强度方面，${evidence}；主要风险是${risk}。`;
 }
 
 function genResearchIntegration(p) {
   const modules = detectModules(p);
-  const m1 = modules[0];
+  const m1 = modules[0] || { name: '核心建模模块', where: '主训练与推理链路' };
   const m2 = modules[1];
 
-  const part1 = m1
-    ? `模块A（${m1.name}）：作用是${m1.role}；接入方式是${m1.how}；适用场景是${m1.where}。`
-    : '';
-  const part2 = m2
-    ? `模块B（${m2.name}）：作用是${m2.role}；接入方式是${m2.how}；适用场景是${m2.where}。`
-    : '';
+  const step1 = `先将${m1.name}接入${m1.where}`;
+  const step2 = m2 ? `再联调${m2.name}` : '再进行关键损失与推理路径联调';
 
-  const direction = '后续方向建议优先做模块解耦实验、跨数据泛化验证和低延迟部署优化。';
-  return `研究落地与后续方向：${clip(part1, 88)} ${clip(part2, 88)} ${direction}`.trim();
+  return `研究落地与后续方向：${step1}，${step2}；随后重点验证泛化能力、系统稳定性与推理时延。`;
 }
 
 async function main() {
