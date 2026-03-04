@@ -389,6 +389,28 @@ function renderTemplateText(template, vars) {
   });
 }
 
+async function callOpenAICompat({ baseUrl, apiKey, body, nodeId }) {
+  const res = await fetch(`${String(baseUrl).replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const e = new Error(`llm_http_${res.status}:${text.slice(0, 300)}`);
+    e.code = 'task_error';
+    e.nodeId = nodeId;
+    throw e;
+  }
+
+  const json = await res.json();
+  return String(json?.choices?.[0]?.message?.content || '');
+}
+
 async function runLLMExecutor({ node, rolesDoc, spec, runDir, packRoot, ctx }) {
   const model = spec.model || spec.config?.model;
   if (!model) {
@@ -434,44 +456,120 @@ async function runLLMExecutor({ node, rolesDoc, spec, runDir, packRoot, ctx }) {
       'Return ONLY valid JSON object mapping output file names to text content.',
     ].filter(Boolean).join('\n');
 
-  const body = {
-    model,
-    temperature: Number(spec.temperature ?? spec.config?.temperature ?? 0.2),
-    max_tokens: Number(spec.maxTokens ?? spec.config?.maxTokens ?? 1200),
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `${userPrompt}\n\nDeclared outputs: ${JSON.stringify(node.outputs || [])}\nInputs: ${JSON.stringify(ctx.inputs || {})}`,
-      },
-    ],
-  };
+  const maxTokens = Number(spec.maxTokens ?? spec.config?.maxTokens ?? 1200);
+  const temperature = Number(spec.temperature ?? spec.config?.temperature ?? 0.2);
 
-  const res = await fetch(`${String(baseUrl).replace(/\/$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const group = normalizeGroupSpec(spec);
+  const transcript = [];
+  let budgetUsed = 0;
+  const degradeActions = [];
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const e = new Error(`llm_http_${res.status}:${text.slice(0, 300)}`);
-    e.code = 'task_error';
-    throw e;
+  let members = [...group.members];
+  let rounds = group.maxRounds;
+
+  if (group.enabled && members.length > 0 && group.tokenBudget > 0) {
+    const perTurnEstimate = Math.max(120, estimateTokens(userPrompt) + 120);
+    const desiredTurns = members.length * rounds;
+    const affordableTurns = Math.max(1, Math.floor(group.tokenBudget / perTurnEstimate));
+
+    if (affordableTurns < desiredTurns) {
+      rounds = Math.max(1, Math.floor(affordableTurns / Math.max(1, members.length)));
+      if (rounds * members.length > affordableTurns) {
+        members = members.slice(0, Math.max(1, affordableTurns));
+      }
+      degradeActions.push('reduce_group_rounds_or_members_by_budget');
+    }
   }
 
-  const json = await res.json();
-  const content = json?.choices?.[0]?.message?.content || '';
-  const outMap = parseJsonObjectFromText(content);
+  if (group.enabled && members.length > 0) {
+    for (let r = 1; r <= rounds; r++) {
+      for (const member of members) {
+        if (group.tokenBudget > 0 && budgetUsed >= group.tokenBudget) {
+          degradeActions.push('stop_group_discussion_budget_exhausted');
+          break;
+        }
+
+        const remainingBudget = group.tokenBudget > 0 ? Math.max(128, group.tokenBudget - budgetUsed) : maxTokens;
+        const turnMaxTokens = Math.max(128, Math.min(maxTokens, remainingBudget));
+        const contextTail = transcript.slice(-4).map((x) => `- ${x.member}: ${x.text.slice(0, 220)}`).join('\n');
+
+        const turnPrompt = [
+          `Round ${r}/${rounds}, Member: ${member}`,
+          `Task: ${userPrompt}`,
+          `Declared outputs: ${JSON.stringify(node.outputs || [])}`,
+          `Inputs: ${JSON.stringify(ctx.inputs || {})}`,
+          contextTail ? `Recent discussion:\n${contextTail}` : '',
+          'Respond with concise reasoning and practical decisions for downstream synthesis.',
+        ].filter(Boolean).join('\n\n');
+
+        const turnText = await callOpenAICompat({
+          baseUrl,
+          apiKey,
+          nodeId: node.id,
+          body: {
+            model,
+            temperature,
+            max_tokens: turnMaxTokens,
+            messages: [
+              { role: 'system', content: `${systemPrompt}\nYou are one member in a role-group discussion.` },
+              { role: 'user', content: turnPrompt },
+            ],
+          },
+        });
+
+        budgetUsed += estimateTokens(turnPrompt) + estimateTokens(turnText);
+        transcript.push({ round: r, member, text: turnText });
+      }
+
+      if (group.tokenBudget > 0 && budgetUsed >= group.tokenBudget) break;
+    }
+  }
+
+  const synthPrompt = [
+    userPrompt,
+    `Declared outputs: ${JSON.stringify(node.outputs || [])}`,
+    `Inputs: ${JSON.stringify(ctx.inputs || {})}`,
+    transcript.length
+      ? `Group discussion transcript:\n${transcript.map((x) => `- [r${x.round}] ${x.member}: ${x.text.slice(0, 600)}`).join('\n')}`
+      : 'No group transcript available. Synthesize directly.',
+  ].join('\n\n');
+
+  const finalMaxTokens = group.tokenBudget > 0
+    ? Math.max(128, Math.min(maxTokens, group.tokenBudget - budgetUsed))
+    : maxTokens;
+
+  const finalContent = await callOpenAICompat({
+    baseUrl,
+    apiKey,
+    nodeId: node.id,
+    body: {
+      model,
+      temperature,
+      max_tokens: finalMaxTokens,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: synthPrompt },
+      ],
+    },
+  });
+
+  budgetUsed += estimateTokens(synthPrompt) + estimateTokens(finalContent);
+  const outMap = parseJsonObjectFromText(finalContent);
 
   if (!outMap || typeof outMap !== 'object') {
     const e = new Error('llm_invalid_json_output');
     e.code = 'task_error';
     throw e;
+  }
+
+  const nodeGroup = ctx.groupRuntime?.[node.id];
+  if (nodeGroup && nodeGroup.enabled) {
+    nodeGroup.members = members;
+    nodeGroup.maxRounds = rounds;
+    nodeGroup.tokenUsed = budgetUsed;
+    nodeGroup.degradeActions = degradeActions;
+    nodeGroup.summary = transcript.slice(-6).map((x) => `[r${x.round}] ${x.member}: ${x.text.slice(0, 140)}`).join(' | ');
   }
 
   for (const out of node.outputs || []) {
@@ -758,17 +856,6 @@ async function executeTaskAttempt({ node, rolesDoc, runDir, packRoot, ctx, rules
   ctx.groupRuntime = ctx.groupRuntime || {};
   ctx.groupRuntime[node.id] = groupRuntime;
   ctx.groupTelemetry = ctx.groupTelemetry || [];
-  if (groupRuntime.enabled) {
-    ctx.groupTelemetry.push({
-      nodeId: node.id,
-      role: node.role || '',
-      members: groupRuntime.members,
-      maxRounds: groupRuntime.maxRounds,
-      tokenBudget: groupRuntime.tokenBudget,
-      tokenEstimate: groupRuntime.tokenEstimate,
-      ts: new Date().toISOString(),
-    });
-  }
 
   let executedType = groupRuntime.enabled ? `${spec.type}:group` : spec.type;
 
@@ -830,6 +917,21 @@ async function executeTaskAttempt({ node, rolesDoc, runDir, packRoot, ctx, rules
     err.code = 'contract_violation';
     err.violations = violations;
     throw err;
+  }
+
+  const finalGroup = ctx.groupRuntime?.[node.id] || groupRuntime;
+  if (finalGroup?.enabled) {
+    ctx.groupTelemetry.push({
+      nodeId: node.id,
+      role: node.role || '',
+      members: finalGroup.members || [],
+      maxRounds: finalGroup.maxRounds || 0,
+      tokenBudget: finalGroup.tokenBudget || 0,
+      tokenEstimate: finalGroup.tokenEstimate || 0,
+      tokenUsed: finalGroup.tokenUsed || 0,
+      degradeActions: finalGroup.degradeActions || [],
+      ts: new Date().toISOString(),
+    });
   }
 
   return { ok: true, executor: executedType };
