@@ -9,6 +9,7 @@ Current capabilities:
 - Event stream log (`execution_events.jsonl`)
 - Node retry/timeout/backoff policy support (workflow-defined)
 - Role/Node executor plugin routing (`template` | `shell` | `script` | `llm`)
+- Optional role-level group discussion metadata (`executor.group`) with budget telemetry
 - Workflow discovery and metadata describe APIs
 - Workflow input contract validation (`workflow.yaml.inputs`)
 - Governance sync enforcement (`governance.sync` + lock file)

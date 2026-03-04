@@ -1,9 +1,9 @@
 # Runbook
 
 ## Invocation
-- CLI: `wf validate metapipe` then `wf run metapipe --input task_prompt="..."` (or `--dry-run` for synthetic placeholder input)
-- API: `GET /workflows/metapipe/validate`, then `POST /workflows/metapipe/run` with JSON body `{ "inputs": { "task_prompt": "..." } }`
-- StdIO RPC / MCP: `validate_workflow` then `run_workflow` with params like `{ "packId": "metapipe", "inputs": { "task_prompt": "..." } }`
+- CLI: `wf sync-check metapipe` + `wf validate metapipe` then `wf run metapipe --input task_prompt="..."` (or `--dry-run` for synthetic placeholder input)
+- API: `GET /workflows/metapipe/sync-check`, `GET /workflows/metapipe/validate`, then `POST /workflows/metapipe/run` with JSON body `{ "inputs": { "task_prompt": "..." } }`
+- StdIO RPC / MCP: `sync_check_workflow`, `validate_workflow`, then `run_workflow` with params like `{ "packId": "metapipe", "inputs": { "task_prompt": "..." } }`
 
 ## Stage Gates
 1. Alignment gate must pass before Design.

@@ -253,6 +253,50 @@ export async function validatePack(packId) {
   const nodes = Array.isArray(wf?.nodes) ? wf.nodes : [];
   const roleMap = (roles && typeof roles.roles === 'object' && roles.roles) ? roles.roles : {};
 
+  for (const [roleName, roleSpec] of Object.entries(roleMap)) {
+    const g = roleSpec?.executor?.group;
+    if (!g) continue;
+
+    const members = Array.isArray(g.members) ? g.members : [];
+    if (members.length === 0) {
+      warnings.push({
+        code: 'group_members_missing',
+        role: roleName,
+        message: `role ${roleName} has executor.group but no members`,
+      });
+    }
+
+    const maxRounds = Number(g.maxRounds ?? 1);
+    if (!Number.isFinite(maxRounds) || maxRounds < 1) {
+      errors.push({
+        code: 'group_max_rounds_invalid',
+        role: roleName,
+        message: `role ${roleName} has invalid group.maxRounds`,
+      });
+    } else if (maxRounds > 8) {
+      warnings.push({
+        code: 'group_max_rounds_too_high',
+        role: roleName,
+        message: `role ${roleName} group.maxRounds=${maxRounds} may be too expensive`,
+      });
+    }
+
+    const tokenBudget = Number(g.tokenBudget ?? 0);
+    if (!Number.isFinite(tokenBudget) || tokenBudget < 0) {
+      errors.push({
+        code: 'group_token_budget_invalid',
+        role: roleName,
+        message: `role ${roleName} has invalid group.tokenBudget`,
+      });
+    } else if (tokenBudget > 0 && tokenBudget < 200) {
+      warnings.push({
+        code: 'group_token_budget_too_low',
+        role: roleName,
+        message: `role ${roleName} group.tokenBudget=${tokenBudget} may truncate outputs aggressively`,
+      });
+    }
+  }
+
   if (!wf?.id) warnings.push({ code: 'workflow_id_missing', message: 'workflow.id is missing' });
   if (!wf?.entryNode) errors.push({ code: 'entry_node_missing', message: 'workflow.entryNode is required' });
   if (!Array.isArray(wf?.nodes) || nodes.length === 0) {
@@ -597,6 +641,17 @@ name: ${packId}
 mode: state-machine
 entryNode: collect_requirements
 
+governance:
+  sync:
+    enabled: true
+    lockFile: governance.lock.json
+    tracked:
+      - workflow.yaml
+      - roles.yaml
+      - tasks.yaml
+      - contracts/
+      - templates/
+
 inputs:
   - name: task_prompt
     type: string
@@ -657,16 +712,28 @@ roles:
     objective: "Turn task prompt into crisp requirements"
     executor:
       type: template
+      group:
+        members: ["analyst-proposer", "analyst-critic", "analyst-synthesizer"]
+        maxRounds: 2
+        tokenBudget: 1200
 
   architect:
     objective: "Create executable workflow/task structure"
     executor:
       type: template
+      group:
+        members: ["architect-proposer", "architect-critic", "architect-synthesizer"]
+        maxRounds: 2
+        tokenBudget: 1200
 
   verifier:
     objective: "Validate generated artifacts and classify deviation"
     executor:
       type: template
+      group:
+        members: ["verifier-critic", "verifier-synthesizer"]
+        maxRounds: 1
+        tokenBudget: 800
 `;
 }
 
@@ -770,7 +837,10 @@ export async function scaffoldPipe(packId, opts = {}) {
   await writeIfAbsent(path.join(pipeDir, 'templates', 'deviation-routing-matrix.md'), '# deviation-routing-matrix.md\n');
 
   let validation = null;
+  let sync = null;
   if (WORKFLOW_DIRS.includes(String(opts.baseDir || 'pipes'))) {
+    // For governance-enabled scaffolds, write lock first so validation can enforce sync.
+    sync = await syncLockPack(packId);
     validation = await validatePack(packId);
   } else {
     validation = {
@@ -793,6 +863,7 @@ export async function scaffoldPipe(packId, opts = {}) {
     packId,
     pipeDir,
     validation,
+    sync,
   };
 }
 

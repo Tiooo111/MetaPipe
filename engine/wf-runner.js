@@ -168,6 +168,7 @@ function validateWorkflowInputs(wf, inputs) {
 }
 
 function buildTemplateVars({ node, ctx, extra = {} }) {
+  const groupRuntime = ctx?.groupRuntime?.[node?.id || ''] || {};
   const vars = {
     nodeId: node?.id || '',
     role: node?.role || '',
@@ -179,6 +180,12 @@ function buildTemplateVars({ node, ctx, extra = {} }) {
     taskPrompt: String(ctx?.inputs?.task_prompt ?? ''),
     userContext: String(ctx?.inputs?.user_context ?? ''),
     runtimeConstraints: JSON.stringify(ctx?.inputs?.runtime_constraints ?? {}),
+    groupEnabled: String(!!groupRuntime.enabled),
+    groupMembers: JSON.stringify(groupRuntime.members || []),
+    groupRounds: String(groupRuntime.maxRounds || 0),
+    groupTokenBudget: String(groupRuntime.tokenBudget || 0),
+    groupTokenEstimate: String(groupRuntime.tokenEstimate || 0),
+    groupSummary: String(groupRuntime.summary || ''),
     ...extra,
   };
 
@@ -188,6 +195,57 @@ function buildTemplateVars({ node, ctx, extra = {} }) {
   }
 
   return vars;
+}
+
+function estimateTokens(text) {
+  return Math.ceil(String(text || '').length / 4);
+}
+
+function normalizeGroupSpec(spec) {
+  const g = spec?.group || spec?.config?.group;
+  if (!g) return { enabled: false, members: [], maxRounds: 0, tokenBudget: 0 };
+
+  const members = Array.isArray(g.members) ? g.members.map((m) => String(m)).filter(Boolean) : [];
+  const maxRounds = Math.max(1, Number(g.maxRounds || 1));
+  const tokenBudget = Math.max(0, Number(g.tokenBudget || 0));
+
+  return {
+    enabled: !!g.enabled || members.length > 0,
+    members,
+    maxRounds,
+    tokenBudget,
+  };
+}
+
+function prepareGroupRuntime({ node, spec, ctx }) {
+  const g = normalizeGroupSpec(spec);
+  if (!g.enabled) return { enabled: false, members: [], maxRounds: 0, tokenBudget: 0, tokenEstimate: 0, summary: '' };
+
+  const base = [
+    `node=${node?.id || ''}`,
+    `role=${node?.role || ''}`,
+    `task=${String(ctx?.inputs?.task_prompt || '').slice(0, 320)}`,
+    `members=${g.members.join(',')}`,
+    `rounds=${g.maxRounds}`,
+  ].join('\n');
+
+  let summary = base;
+  let estimate = estimateTokens(summary);
+
+  if (g.tokenBudget > 0 && estimate > g.tokenBudget) {
+    const maxChars = Math.max(80, g.tokenBudget * 4);
+    summary = `${summary.slice(0, maxChars)}\n...[trimmed_by_budget]`;
+    estimate = estimateTokens(summary);
+  }
+
+  return {
+    enabled: true,
+    members: g.members,
+    maxRounds: g.maxRounds,
+    tokenBudget: g.tokenBudget,
+    tokenEstimate: estimate,
+    summary,
+  };
 }
 
 async function loadRolesDoc(packRoot) {
@@ -237,6 +295,10 @@ function resolveExecutorSpec(node, rolesDoc) {
     config: {
       ...((roleSpec && roleSpec.config) || {}),
       ...((nodeSpec && nodeSpec.config) || {}),
+    },
+    group: {
+      ...((roleSpec && roleSpec.group) || {}),
+      ...((nodeSpec && nodeSpec.group) || {}),
     },
   };
 
@@ -692,7 +754,23 @@ async function withTimeout(promiseFactory, timeoutMs, label = 'task') {
 
 async function executeTaskAttempt({ node, rolesDoc, runDir, packRoot, ctx, rules, ajv, schemaCache, dryRun }) {
   const spec = resolveExecutorSpec(node, rolesDoc);
-  let executedType = spec.type;
+  const groupRuntime = prepareGroupRuntime({ node, spec, ctx });
+  ctx.groupRuntime = ctx.groupRuntime || {};
+  ctx.groupRuntime[node.id] = groupRuntime;
+  ctx.groupTelemetry = ctx.groupTelemetry || [];
+  if (groupRuntime.enabled) {
+    ctx.groupTelemetry.push({
+      nodeId: node.id,
+      role: node.role || '',
+      members: groupRuntime.members,
+      maxRounds: groupRuntime.maxRounds,
+      tokenBudget: groupRuntime.tokenBudget,
+      tokenEstimate: groupRuntime.tokenEstimate,
+      ts: new Date().toISOString(),
+    });
+  }
+
+  let executedType = groupRuntime.enabled ? `${spec.type}:group` : spec.type;
 
   if (dryRun && spec.type !== 'template') {
     // In dry-run, avoid external side effects; still materialize outputs for gate progress.
@@ -801,6 +879,8 @@ async function run() {
     workflowId: wf.id || 'workflow',
     artifacts: [],
     inputs: providedInputs,
+    groupRuntime: {},
+    groupTelemetry: [],
     injectDeviation: args.injectDeviation,
     injectedDeviation: false,
     forcedDeviation: null,
@@ -809,6 +889,12 @@ async function run() {
 
   if (!ctx.inputs || typeof ctx.inputs !== 'object' || Array.isArray(ctx.inputs)) {
     ctx.inputs = providedInputs;
+  }
+  if (!ctx.groupRuntime || typeof ctx.groupRuntime !== 'object' || Array.isArray(ctx.groupRuntime)) {
+    ctx.groupRuntime = {};
+  }
+  if (!Array.isArray(ctx.groupTelemetry)) {
+    ctx.groupTelemetry = [];
   }
 
   const history = resumed?.history || [];
@@ -973,6 +1059,7 @@ async function run() {
     history,
     artifacts: [...new Set(ctx.artifacts)],
     inputs: ctx.inputs || {},
+    groupTelemetry: ctx.groupTelemetry || [],
     contractViolations: ctx.contractViolations,
   };
 

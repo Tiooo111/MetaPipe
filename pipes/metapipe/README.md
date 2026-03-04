@@ -11,6 +11,8 @@ Given a task description, MetaPipe produces:
 - operational hardening outputs (`risk_register.md`, `slo_targets.md`, `architecture_decisions.md`)
 - final reusable pipe assets
 
+MetaPipe now supports role-level **group discussion metadata** (members/rounds/tokenBudget) so roles can evolve from single-agent execution to bounded multi-agent deliberation.
+
 ## Stages
 1. Alignment
 2. Design

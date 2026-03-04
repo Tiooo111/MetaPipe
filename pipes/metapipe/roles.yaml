@@ -14,6 +14,10 @@ roles:
     objective: "Align and freeze user intent into testable requirements."
     executor:
       type: template
+      group:
+        members: ["req-proposer", "req-critic", "req-synthesizer"]
+        maxRounds: 2
+        tokenBudget: 1400
     inputs: ["task_prompt", "user_context", "runtime_constraints"]
     outputs: ["requirements.md", "acceptance_criteria.md", "constraints.md", "open_questions.md"]
     boundaries:
@@ -23,6 +27,10 @@ roles:
     objective: "Design role graph, workflow graph, and output contracts."
     executor:
       type: template
+      group:
+        members: ["arch-proposer", "arch-critic", "arch-synthesizer"]
+        maxRounds: 2
+        tokenBudget: 1600
     inputs: ["requirements.md", "acceptance_criteria.md", "constraints.md"]
     outputs: ["workflow.yaml", "roles.yaml", "contracts_map.md"]
     boundaries:
@@ -53,6 +61,10 @@ roles:
     objective: "Validate outputs against acceptance criteria and contracts."
     executor:
       type: template
+      group:
+        members: ["verifier-critic", "verifier-synthesizer"]
+        maxRounds: 1
+        tokenBudget: 900
       # Example script executor:
       # type: script
       # script: "scripts/verify_pack.js"
@@ -65,6 +77,10 @@ roles:
     objective: "Harden runnability and operational quality via risk register + SLO targets + ADR notes."
     executor:
       type: template
+      group:
+        members: ["ops-optimizer", "ops-critic", "ops-synthesizer"]
+        maxRounds: 2
+        tokenBudget: 1200
     inputs: ["verification_report.md", "deviation_report.md", "constraints.md", "runtime_constraints", "quality_target"]
     outputs: ["risk_register.md", "slo_targets.md", "architecture_decisions.md"]
     boundaries:
